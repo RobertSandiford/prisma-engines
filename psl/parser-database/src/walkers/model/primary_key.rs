@@ -8,7 +8,7 @@ use crate::{
 /// An `@(@)id` attribute in the schema.
 #[derive(Copy, Clone)]
 pub struct PrimaryKeyWalker<'db> {
-    pub(crate) model_id: crate::ModelId,
+    pub(crate) model_id: crate::ModelIdInFile,
     pub(crate) attribute: &'db IdAttribute,
     pub(crate) db: &'db ParserDatabase,
 }

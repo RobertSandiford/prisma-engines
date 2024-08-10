@@ -8,7 +8,7 @@ use std::fmt::{Debug, Display};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CompositeFieldId {
     InModel(ScalarFieldId),
-    InCompositeType((db::CompositeTypeId, ast::FieldId)),
+    InCompositeType((db::CompositeTypeIdInFile, ast::FieldId)),
 }
 
 pub type CompositeField = crate::Zipper<CompositeFieldId>;

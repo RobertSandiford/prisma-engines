@@ -120,7 +120,7 @@ pub struct ObjectType<'a> {
     pub(crate) fields: OutputObjectFields<'a>,
 
     // Object types can directly map to models.
-    pub(crate) model: Option<db::ModelId>,
+    pub(crate) model: Option<db::ModelIdInFile>,
 }
 
 impl Debug for ObjectType<'_> {
@@ -213,7 +213,7 @@ impl<'a> OutputField<'a> {
         }
     }
 
-    pub fn model(&self) -> Option<db::ModelId> {
+    pub fn model(&self) -> Option<db::ModelIdInFile> {
         self.query_info.as_ref().and_then(|info| info.model)
     }
 

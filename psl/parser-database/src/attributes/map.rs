@@ -19,7 +19,7 @@ pub(super) fn scalar_field(
     sfid: ScalarFieldId,
     ast_model: &ast::Model,
     ast_field: &ast::Field,
-    model_id: crate::ModelId,
+    model_id: crate::ModelIdInFile,
     field_id: ast::FieldId,
     ctx: &mut Context<'_>,
 ) {
@@ -71,7 +71,7 @@ pub(super) fn scalar_field(
 pub(super) fn composite_type_field(
     ct: &ast::CompositeType,
     ast_field: &ast::Field,
-    ctid: crate::CompositeTypeId,
+    ctid: crate::CompositeTypeIdInFile,
     field_id: ast::FieldId,
     ctx: &mut Context<'_>,
 ) {

@@ -14,13 +14,13 @@ use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 #[derive(Default)]
 pub(super) struct Names {
     /// Models, enums, composite types and type aliases
-    pub(super) tops: HashMap<StringId, crate::TopId>,
+    pub(super) tops: HashMap<StringId, crate::TopIdInFile>,
     /// Generators have their own namespace.
-    pub(super) generators: HashMap<StringId, crate::TopId>,
+    pub(super) generators: HashMap<StringId, crate::TopIdInFile>,
     /// Datasources have their own namespace.
-    pub(super) datasources: HashMap<StringId, crate::TopId>,
-    pub(super) model_fields: HashMap<(crate::ModelId, StringId), ast::FieldId>,
-    pub(super) composite_type_fields: HashMap<(crate::CompositeTypeId, StringId), ast::FieldId>,
+    pub(super) datasources: HashMap<StringId, crate::TopIdInFile>,
+    pub(super) model_fields: HashMap<(crate::ModelIdInFile, StringId), ast::FieldId>,
+    pub(super) composite_type_fields: HashMap<(crate::CompositeTypeIdInFile, StringId), ast::FieldId>,
 }
 
 /// `resolve_names()` is responsible for populating `ParserDatabase.names` and

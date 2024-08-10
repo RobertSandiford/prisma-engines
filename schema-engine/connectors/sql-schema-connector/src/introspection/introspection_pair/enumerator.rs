@@ -51,7 +51,7 @@ impl<'a> EnumPair<'a> {
 
     /// The position of the enum from the PSL, if existing. Used for
     /// sorting the enums in the final introspected data model.
-    pub(crate) fn previous_position(self) -> Option<db::EnumId> {
+    pub(crate) fn previous_position(self) -> Option<db::EnumIdInFile> {
         self.previous.map(|e| e.id)
     }
 

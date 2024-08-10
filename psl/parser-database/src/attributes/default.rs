@@ -9,7 +9,7 @@ use crate::{
 /// @default on model scalar fields
 pub(super) fn visit_model_field_default(
     scalar_field_id: ScalarFieldId,
-    model_id: crate::ModelId,
+    model_id: crate::ModelIdInFile,
     field_id: ast::FieldId,
     r#type: ScalarFieldType,
     ctx: &mut Context<'_>,
@@ -74,7 +74,7 @@ pub(super) fn visit_model_field_default(
 
 /// @default on composite type fields
 pub(super) fn visit_composite_field_default(
-    ct_id: crate::CompositeTypeId,
+    ct_id: crate::CompositeTypeIdInFile,
     field_id: ast::FieldId,
     r#type: ScalarFieldType,
     ctx: &mut Context<'_>,
@@ -181,7 +181,7 @@ fn validate_model_builtin_scalar_type_default(
     value: &ast::Expression,
     mapped_name: Option<StringId>,
     accept: AcceptFn<'_>,
-    field_id: (crate::ModelId, ast::FieldId),
+    field_id: (crate::ModelIdInFile, ast::FieldId),
     ctx: &mut Context<'_>,
 ) {
     let arity = ctx.asts[field_id.0][field_id.1].arity;
@@ -327,7 +327,7 @@ fn validate_invalid_function_default(fn_name: &str, scalar_type: ScalarType, ctx
 }
 
 fn validate_default_value_on_composite_type(
-    ctid: crate::CompositeTypeId,
+    ctid: crate::CompositeTypeIdInFile,
     ast_field: &ast::Field,
     ctx: &mut Context<'_>,
 ) {
@@ -419,7 +419,7 @@ fn validate_nanoid_args(args: &[ast::Argument], accept: AcceptFn<'_>, ctx: &mut 
 
 fn validate_enum_default(
     found_value: &ast::Expression,
-    enum_id: crate::EnumId,
+    enum_id: crate::EnumIdInFile,
     accept: AcceptFn<'_>,
     ctx: &mut Context<'_>,
 ) {
@@ -437,7 +437,7 @@ fn validate_enum_default(
 
 fn validate_enum_list_default(
     found_value: &ast::Expression,
-    enum_id: crate::EnumId,
+    enum_id: crate::EnumIdInFile,
     accept: AcceptFn<'_>,
     ctx: &mut Context<'_>,
 ) {

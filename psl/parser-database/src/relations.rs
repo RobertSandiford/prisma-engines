@@ -75,11 +75,11 @@ pub(crate) struct Relations {
     /// (model_a, model_b, relation_idx)
     ///
     /// This can be interpreted as the relations _from_ a model.
-    forward: BTreeSet<(crate::ModelId, crate::ModelId, RelationId)>,
+    forward: BTreeSet<(crate::ModelIdInFile, crate::ModelIdInFile, RelationId)>,
     /// (model_b, model_a, relation_idx)
     ///
     /// This can be interpreted as the relations _to_ a model.
-    back: BTreeSet<(crate::ModelId, crate::ModelId, RelationId)>,
+    back: BTreeSet<(crate::ModelIdInFile, crate::ModelIdInFile, RelationId)>,
 }
 
 impl std::ops::Index<RelationId> for Relations {
@@ -117,7 +117,7 @@ impl Relations {
     /// Iterator over relations where the provided model is model A, or the forward side of the
     /// relation.
     #[allow(clippy::wrong_self_convention)] // this is the name we want
-    pub(crate) fn from_model(&self, model_a_id: crate::ModelId) -> impl Iterator<Item = RelationId> + '_ {
+    pub(crate) fn from_model(&self, model_a_id: crate::ModelIdInFile) -> impl Iterator<Item = RelationId> + '_ {
         self.forward
             .range(
                 (model_a_id, (FileId::ZERO, ast::ModelId::ZERO), RelationId::MIN)
@@ -128,7 +128,7 @@ impl Relations {
 
     /// Iterator over relationss where the provided model is model B, or the backrelation side of
     /// the relation.
-    pub(crate) fn to_model(&self, model_a_id: crate::ModelId) -> impl Iterator<Item = RelationId> + '_ {
+    pub(crate) fn to_model(&self, model_a_id: crate::ModelIdInFile) -> impl Iterator<Item = RelationId> + '_ {
         self.back
             .range(
                 (model_a_id, (FileId::ZERO, ast::ModelId::ZERO), RelationId::MIN)
@@ -186,8 +186,8 @@ pub(crate) struct Relation {
     /// The `name` argument in `@relation`.
     pub(super) relation_name: Option<StringId>,
     pub(super) attributes: RelationAttributes,
-    pub(super) model_a: crate::ModelId,
-    pub(super) model_b: crate::ModelId,
+    pub(super) model_a: crate::ModelIdInFile,
+    pub(super) model_b: crate::ModelIdInFile,
 }
 
 impl Relation {
@@ -225,11 +225,11 @@ pub(super) struct RelationEvidence<'db> {
 }
 
 impl RelationEvidence<'_> {
-    fn model_id(&self) -> crate::ModelId {
+    fn model_id(&self) -> crate::ModelIdInFile {
         self.relation_field.model_id
     }
 
-    fn referenced_model_id(&self) -> crate::ModelId {
+    fn referenced_model_id(&self) -> crate::ModelIdInFile {
         self.relation_field.referenced_model
     }
 }

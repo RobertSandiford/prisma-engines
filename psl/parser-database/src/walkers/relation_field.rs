@@ -92,7 +92,7 @@ impl<'db> RelationFieldWalker<'db> {
     }
 
     /// Does the relation field reference the passed in model?
-    pub fn references_model(self, other: crate::ModelId) -> bool {
+    pub fn references_model(self, other: crate::ModelIdInFile) -> bool {
         self.attributes().referenced_model == other
     }
 

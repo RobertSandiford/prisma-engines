@@ -40,7 +40,7 @@ pub(super) fn resolve_attributes(ctx: &mut Context<'_>) {
 }
 
 fn resolve_composite_type_attributes<'db>(
-    ctid: crate::CompositeTypeId,
+    ctid: crate::CompositeTypeIdInFile,
     ct: &'db ast::CompositeType,
     ctx: &mut Context<'db>,
 ) {
@@ -83,7 +83,7 @@ fn resolve_composite_type_attributes<'db>(
     }
 }
 
-fn resolve_enum_attributes<'db>(enum_id: crate::EnumId, ast_enum: &'db ast::Enum, ctx: &mut Context<'db>) {
+fn resolve_enum_attributes<'db>(enum_id: crate::EnumIdInFile, ast_enum: &'db ast::Enum, ctx: &mut Context<'db>) {
     let mut enum_attributes = EnumAttributes::default();
 
     for (value_id, _) in ast_enum.iter_values() {
@@ -122,7 +122,7 @@ fn resolve_enum_attributes<'db>(enum_id: crate::EnumId, ast_enum: &'db ast::Enum
     ctx.validate_visited_attributes();
 }
 
-fn resolve_model_attributes(model_id: crate::ModelId, ctx: &mut Context<'_>) {
+fn resolve_model_attributes(model_id: crate::ModelIdInFile, ctx: &mut Context<'_>) {
     let mut model_attributes = ModelAttributes::default();
 
     // First resolve all the attributes defined on fields **in isolation**.
@@ -399,7 +399,7 @@ fn visit_relation_field_attributes(rfid: RelationFieldId, ctx: &mut Context<'_>)
     ctx.validate_visited_attributes();
 }
 
-fn visit_model_ignore(model_id: crate::ModelId, model_data: &mut ModelAttributes, ctx: &mut Context<'_>) {
+fn visit_model_ignore(model_id: crate::ModelIdInFile, model_data: &mut ModelAttributes, ctx: &mut Context<'_>) {
     let ignored_field_errors: Vec<_> = ctx
         .types
         .range_model_scalar_fields(model_id)
@@ -421,7 +421,7 @@ fn visit_model_ignore(model_id: crate::ModelId, model_data: &mut ModelAttributes
 }
 
 /// Validate @@fulltext on models
-fn model_fulltext(data: &mut ModelAttributes, model_id: crate::ModelId, ctx: &mut Context<'_>) {
+fn model_fulltext(data: &mut ModelAttributes, model_id: crate::ModelIdInFile, ctx: &mut Context<'_>) {
     let mut index_attribute = IndexAttribute {
         r#type: IndexType::Fulltext,
         ..Default::default()
@@ -452,7 +452,7 @@ fn model_fulltext(data: &mut ModelAttributes, model_id: crate::ModelId, ctx: &mu
 }
 
 /// Validate @@index on models.
-fn model_index(data: &mut ModelAttributes, model_id: crate::ModelId, ctx: &mut Context<'_>) {
+fn model_index(data: &mut ModelAttributes, model_id: crate::ModelIdInFile, ctx: &mut Context<'_>) {
     let mut index_attribute = IndexAttribute {
         r#type: IndexType::Normal,
         ..Default::default()
@@ -526,7 +526,7 @@ fn model_index(data: &mut ModelAttributes, model_id: crate::ModelId, ctx: &mut C
 }
 
 /// Validate @@unique on models.
-fn model_unique(data: &mut ModelAttributes, model_id: crate::ModelId, ctx: &mut Context<'_>) {
+fn model_unique(data: &mut ModelAttributes, model_id: crate::ModelIdInFile, ctx: &mut Context<'_>) {
     let mut index_attribute = IndexAttribute {
         r#type: IndexType::Unique,
         ..Default::default()
@@ -583,7 +583,7 @@ fn model_unique(data: &mut ModelAttributes, model_id: crate::ModelId, ctx: &mut 
 
 fn common_index_validations(
     index_data: &mut IndexAttribute,
-    model_id: crate::ModelId,
+    model_id: crate::ModelIdInFile,
     resolving: FieldResolvingSetup,
     ctx: &mut Context<'_>,
 ) {
@@ -676,7 +676,7 @@ fn common_index_validations(
 }
 
 /// @relation validation for relation fields.
-fn visit_relation(model_id: crate::ModelId, relation_field_id: RelationFieldId, ctx: &mut Context<'_>) {
+fn visit_relation(model_id: crate::ModelIdInFile, relation_field_id: RelationFieldId, ctx: &mut Context<'_>) {
     let attr = ctx.current_attribute();
     ctx.types[relation_field_id].relation_attribute = Some(ctx.current_attribute_id().1);
 
@@ -815,7 +815,7 @@ enum FieldResolutionError<'ast> {
     AlreadyDealtWith,
     ProblematicFields {
         /// Fields that do not exist on the model.
-        unknown_fields: Vec<(crate::TopId, &'ast str)>,
+        unknown_fields: Vec<(crate::TopIdInFile, &'ast str)>,
         /// Fields that exist on the model but are relation fields.
         relation_fields: Vec<(&'ast ast::Field, ast::FieldId)>,
     },
@@ -827,7 +827,7 @@ enum FieldResolutionError<'ast> {
 fn resolve_field_array_without_args<'db>(
     values: &'db ast::Expression,
     attribute_span: ast::Span,
-    model_id: crate::ModelId,
+    model_id: crate::ModelIdInFile,
     ctx: &mut Context<'db>,
 ) -> Result<Vec<ScalarFieldId>, FieldResolutionError<'db>> {
     let file_id = model_id.0;
@@ -910,7 +910,7 @@ impl FieldResolvingSetup {
 fn resolve_field_array_with_args<'db>(
     values: &'db ast::Expression,
     attribute_span: ast::Span,
-    model_id: crate::ModelId,
+    model_id: crate::ModelIdInFile,
     resolving: FieldResolvingSetup,
     ctx: &mut Context<'db>,
 ) -> Result<Vec<FieldWithArgs>, FieldResolutionError<'db>> {

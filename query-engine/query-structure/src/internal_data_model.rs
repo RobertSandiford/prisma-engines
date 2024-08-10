@@ -52,11 +52,11 @@ impl InternalDataModel {
             .ok_or_else(|| DomainError::ModelNotFound { name: name.to_string() })
     }
 
-    pub fn find_composite_type_by_id(&self, ctid: db::CompositeTypeId) -> CompositeType {
+    pub fn find_composite_type_by_id(&self, ctid: db::CompositeTypeIdInFile) -> CompositeType {
         self.clone().zip(ctid)
     }
 
-    pub fn find_model_by_id(&self, model_id: db::ModelId) -> Model {
+    pub fn find_model_by_id(&self, model_id: db::ModelIdInFile) -> Model {
         self.clone().zip(model_id)
     }
 

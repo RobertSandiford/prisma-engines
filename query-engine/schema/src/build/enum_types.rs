@@ -17,7 +17,7 @@ pub(crate) fn nulls_order_enum() -> EnumType {
     )
 }
 
-pub(crate) fn map_schema_enum_type(ctx: &'_ QuerySchema, enum_id: db::EnumId) -> EnumType {
+pub(crate) fn map_schema_enum_type(ctx: &'_ QuerySchema, enum_id: db::EnumIdInFile) -> EnumType {
     let ident = Identifier::new_model(IdentifierType::Enum(ctx.internal_data_model.clone().zip(enum_id)));
 
     let schema_enum = ctx.internal_data_model.clone().zip(enum_id);

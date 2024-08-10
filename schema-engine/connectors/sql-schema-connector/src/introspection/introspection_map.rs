@@ -24,11 +24,11 @@ pub(crate) use relation_names::RelationName;
 /// schema.
 #[derive(Default)]
 pub(crate) struct IntrospectionMap<'a> {
-    pub(crate) existing_enums: HashMap<sql::EnumId, db::EnumId>,
-    pub(crate) existing_models: HashMap<sql::TableId, db::ModelId>,
-    pub(crate) existing_views: HashMap<sql::ViewId, db::ModelId>,
-    pub(crate) missing_tables_for_previous_models: HashSet<db::ModelId>,
-    pub(crate) missing_views_for_previous_models: HashSet<db::ModelId>,
+    pub(crate) existing_enums: HashMap<sql::EnumId, db::EnumIdInFile>,
+    pub(crate) existing_models: HashMap<sql::TableId, db::ModelIdInFile>,
+    pub(crate) existing_views: HashMap<sql::ViewId, db::ModelIdInFile>,
+    pub(crate) missing_tables_for_previous_models: HashSet<db::ModelIdInFile>,
+    pub(crate) missing_views_for_previous_models: HashSet<db::ModelIdInFile>,
     pub(crate) existing_model_scalar_fields: HashMap<sql::TableColumnId, ScalarFieldId>,
     pub(crate) existing_view_scalar_fields: HashMap<sql::ViewColumnId, ScalarFieldId>,
     pub(crate) existing_inline_relations: HashMap<sql::ForeignKeyId, db::RelationId>,

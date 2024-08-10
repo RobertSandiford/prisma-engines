@@ -9,8 +9,8 @@ use std::{borrow::Cow, collections::HashMap, ops::Deref};
 pub(crate) struct ConstraintNamespace<'db> {
     // (ConstraintScope, schema name, name) -> occurrences
     global: HashMap<(ConstraintScope, Option<&'db str>, Cow<'db, str>), usize>,
-    local: HashMap<(parser_database::ModelId, ConstraintScope, Cow<'db, str>), usize>,
-    local_custom_name: HashMap<(parser_database::ModelId, Cow<'db, str>), usize>,
+    local: HashMap<(parser_database::ModelIdInFile, ConstraintScope, Cow<'db, str>), usize>,
+    local_custom_name: HashMap<(parser_database::ModelIdInFile, Cow<'db, str>), usize>,
 }
 
 impl<'db> ConstraintNamespace<'db> {
@@ -18,7 +18,7 @@ impl<'db> ConstraintNamespace<'db> {
     /// local violations in the given model.
     pub(crate) fn constraint_name_scope_violations(
         &self,
-        model_id: parser_database::ModelId,
+        model_id: parser_database::ModelIdInFile,
         name: ConstraintName<'db>,
         ctx: &super::Context<'db>,
     ) -> impl Iterator<Item = &'db ConstraintScope> + '_ {
@@ -42,7 +42,7 @@ impl<'db> ConstraintNamespace<'db> {
 
     fn local_constraint_name_scope_violations(
         &self,
-        model_id: parser_database::ModelId,
+        model_id: parser_database::ModelIdInFile,
         name: ConstraintName<'db>,
     ) -> impl Iterator<Item = &'db ConstraintScope> + '_ {
         name.possible_scopes().filter(move |scope| {
@@ -55,7 +55,7 @@ impl<'db> ConstraintNamespace<'db> {
 
     pub(crate) fn local_custom_name_scope_violations(
         &self,
-        model_id: parser_database::ModelId,
+        model_id: parser_database::ModelIdInFile,
         name: &'db str,
     ) -> bool {
         match self.local_custom_name.get(&(model_id, Cow::from(name))) {

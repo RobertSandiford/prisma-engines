@@ -361,7 +361,7 @@ pub(super) fn schema_attribute_missing(model: ModelWalker<'_>, ctx: &mut Context
 
 pub(super) fn database_name_clashes(ctx: &mut Context<'_>) {
     // (schema_name, model_database_name) -> ModelId
-    let mut database_names: HashMap<(Option<&str>, &str), parser_database::ModelId> =
+    let mut database_names: HashMap<(Option<&str>, &str), parser_database::ModelIdInFile> =
         HashMap::with_capacity(ctx.db.models_count());
 
     for model in ctx.db.walk_models().chain(ctx.db.walk_views()) {

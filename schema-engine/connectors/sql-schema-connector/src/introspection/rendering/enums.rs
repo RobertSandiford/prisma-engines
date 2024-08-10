@@ -15,7 +15,7 @@ pub(super) fn render<'a>(
     ctx: &'a DatamodelCalculatorContext<'a>,
     rendered: &mut renderer::Datamodel<'a>,
 ) {
-    let mut all_enums: Vec<(Option<db::EnumId>, renderer::Enum<'_>)> = Vec::new();
+    let mut all_enums: Vec<(Option<db::EnumIdInFile>, renderer::Enum<'_>)> = Vec::new();
 
     for pair in ctx.enum_pairs() {
         all_enums.push((pair.previous_position(), render_enum(pair)))

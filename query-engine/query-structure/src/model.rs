@@ -1,7 +1,7 @@
 use crate::prelude::*;
-use psl::parser_database::{walkers, ModelId};
+use psl::parser_database::{walkers, ModelIdInFile};
 
-pub type Model = crate::Zipper<ModelId>;
+pub type Model = crate::Zipper<ModelIdInFile>;
 
 impl Model {
     pub fn name(&self) -> &str {

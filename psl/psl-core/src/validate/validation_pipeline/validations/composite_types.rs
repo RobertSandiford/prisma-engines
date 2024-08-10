@@ -11,8 +11,8 @@ use std::{fmt, rc::Rc};
 /// Detect compound type chains that form a cycle, that is not broken with either an optional or an
 /// array type.
 pub(super) fn detect_composite_cycles(ctx: &mut Context<'_>) {
-    let mut visited: Vec<parser_database::CompositeTypeId> = Vec::new();
-    let mut errors: Vec<(parser_database::CompositeTypeId, DatamodelError)> = Vec::new();
+    let mut visited: Vec<parser_database::CompositeTypeIdInFile> = Vec::new();
+    let mut errors: Vec<(parser_database::CompositeTypeIdInFile, DatamodelError)> = Vec::new();
 
     let mut fields_to_traverse: Vec<(CompositeTypeFieldWalker<'_>, Option<Rc<CompositeTypePath<'_>>>)> = ctx
         .db

@@ -5,9 +5,9 @@ use crate::{
 };
 
 /// An `enum` declaration in the schema.
-pub type EnumWalker<'db> = Walker<'db, crate::EnumId>;
+pub type EnumWalker<'db> = Walker<'db, crate::EnumIdInFile>;
 /// One value in an `enum` declaration in the schema.
-pub type EnumValueWalker<'db> = Walker<'db, (crate::EnumId, ast::EnumValueId)>;
+pub type EnumValueWalker<'db> = Walker<'db, (crate::EnumIdInFile, ast::EnumValueId)>;
 
 impl<'db> EnumWalker<'db> {
     fn attributes(self) -> &'db types::EnumAttributes {

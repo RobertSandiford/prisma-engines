@@ -293,6 +293,7 @@ impl DatamodelError {
         Self::new(format!("Environment variable not found: {var_name}."), span)
     }
 
+    // this is the error for computed types
     pub fn new_type_not_found_error(type_name: &str, span: Span) -> DatamodelError {
         let msg = format!(
             "Type \"{type_name}\" is neither a built-in type, nor refers to another model, composite type, or enum."

@@ -1,11 +1,11 @@
 use super::constraint_namespace::ConstraintNamespace;
 use parser_database::{
     walkers::{RelationFieldId, RelationName},
-    ModelId,
+    ModelIdInFile,
 };
 use std::collections::{HashMap, HashSet};
 
-type RelationIdentifier<'db> = (ModelId, ModelId, RelationName<'db>);
+type RelationIdentifier<'db> = (ModelIdInFile, ModelIdInFile, RelationName<'db>);
 
 #[derive(Clone, Copy)]
 pub(super) enum NameTaken {
@@ -16,18 +16,18 @@ pub(super) enum NameTaken {
 
 pub(super) struct Names<'db> {
     pub(super) relation_names: HashMap<RelationIdentifier<'db>, Vec<RelationFieldId>>,
-    index_names: HashSet<(ModelId, &'db str)>,
-    unique_names: HashSet<(ModelId, &'db str)>,
-    primary_key_names: HashMap<ModelId, &'db str>,
+    index_names: HashSet<(ModelIdInFile, &'db str)>,
+    unique_names: HashSet<(ModelIdInFile, &'db str)>,
+    primary_key_names: HashMap<ModelIdInFile, &'db str>,
     pub(super) constraint_namespace: ConstraintNamespace<'db>,
 }
 
 impl<'db> Names<'db> {
     pub(super) fn new(ctx: &super::Context<'db>) -> Self {
         let mut relation_names: HashMap<RelationIdentifier<'db>, Vec<RelationFieldId>> = HashMap::new();
-        let mut index_names: HashSet<(ModelId, &'db str)> = HashSet::new();
-        let mut unique_names: HashSet<(ModelId, &'db str)> = HashSet::new();
-        let mut primary_key_names: HashMap<ModelId, &'db str> = HashMap::new();
+        let mut index_names: HashSet<(ModelIdInFile, &'db str)> = HashSet::new();
+        let mut unique_names: HashSet<(ModelIdInFile, &'db str)> = HashSet::new();
+        let mut primary_key_names: HashMap<ModelIdInFile, &'db str> = HashMap::new();
 
         for model in ctx.db.walk_models().chain(ctx.db.walk_views()) {
             let model_id = model.id;
@@ -66,7 +66,7 @@ impl<'db> Names<'db> {
         }
     }
 
-    pub(super) fn name_taken(&self, model_id: ModelId, name: &str) -> Vec<NameTaken> {
+    pub(super) fn name_taken(&self, model_id: ModelIdInFile, name: &str) -> Vec<NameTaken> {
         let mut result = Vec::new();
 
         if self.index_names.contains(&(model_id, name)) {

@@ -10,7 +10,7 @@ use crate::{
 use std::borrow::Cow;
 
 /// @@id on models
-pub(super) fn model(model_data: &mut ModelAttributes, model_id: crate::ModelId, ctx: &mut Context<'_>) {
+pub(super) fn model(model_data: &mut ModelAttributes, model_id: crate::ModelIdInFile, ctx: &mut Context<'_>) {
     let attr = ctx.current_attribute();
     let fields = match ctx.visit_default_arg("fields") {
         Ok(value) => value,
@@ -198,7 +198,7 @@ pub(super) fn field<'db>(
 }
 
 pub(super) fn validate_id_field_arities(
-    model_id: crate::ModelId,
+    model_id: crate::ModelIdInFile,
     model_attributes: &ModelAttributes,
     ctx: &mut Context<'_>,
 ) {

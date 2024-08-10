@@ -5,8 +5,7 @@ use psl::{
     error_tolerant_parse_configuration,
     parser_database::ParserDatabase,
     schema_ast::ast::{
-        AttributePosition, CompositeTypePosition, EnumPosition, Field, FieldId, FieldPosition, FieldType, ModelId,
-        ModelPosition, SchemaPosition, SourcePosition, Top, WithAttributes, WithIdentifier, WithName, WithSpan,
+        AttributePosition, CompositeTypePosition, EnumPosition, Field, FieldId, FieldPosition, FieldType, FieldValue, ModelId, ModelPosition, SchemaPosition, SourcePosition, Top, WithAttributes, WithIdentifier, WithName, WithSpan
     },
     Diagnostics, SourceFile,
 };
@@ -289,7 +288,11 @@ fn find_where_used_as_field_type<'ast>(
     fn get_relevent_identifiers<'a>(fields: impl Iterator<Item = (FieldId, &'a Field)>, name: &str) -> Vec<Span> {
         fields
             .filter_map(|(_id, field)| match &field.field_type {
-                FieldType::Supported(id) if id.name == name => Some(id.span()),
+                FieldType::Supported(value) => match value {
+                    FieldValue::Identifier(id) if id.name == name => Some(id.span()),
+                    FieldValue::ComputedType(computed) if computed.name == name => Some(computed.span), // RS why does id have span meth but computed only has span field?
+                    _ => None
+                }
                 _ => None,
             })
             .collect()

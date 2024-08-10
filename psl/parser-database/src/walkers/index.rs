@@ -11,7 +11,7 @@ use crate::{
 /// An index, unique or fulltext attribute.
 #[derive(Copy, Clone)]
 pub struct IndexWalker<'db> {
-    pub(crate) model_id: crate::ModelId,
+    pub(crate) model_id: crate::ModelIdInFile,
     pub(crate) index: ast::AttributeId,
     pub(crate) db: &'db ParserDatabase,
     pub(crate) index_attribute: &'db IndexAttribute,

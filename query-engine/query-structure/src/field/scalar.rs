@@ -12,7 +12,7 @@ pub type ScalarFieldRef = ScalarField;
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ScalarFieldId {
     InModel(psl::parser_database::ScalarFieldId),
-    InCompositeType((db::CompositeTypeId, ast::FieldId)),
+    InCompositeType((db::CompositeTypeIdInFile, ast::FieldId)),
 }
 
 impl ScalarField {

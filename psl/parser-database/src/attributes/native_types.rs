@@ -14,7 +14,7 @@ pub(super) fn visit_model_field_native_type_attribute(
 }
 
 pub(super) fn visit_composite_type_field_native_type_attribute(
-    id: (crate::CompositeTypeId, ast::FieldId),
+    id: (crate::CompositeTypeIdInFile, ast::FieldId),
     datasource_name: StringId,
     type_name: StringId,
     attr: &ast::Attribute,

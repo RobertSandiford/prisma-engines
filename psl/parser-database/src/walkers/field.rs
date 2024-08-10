@@ -6,7 +6,7 @@ use crate::{
 use schema_ast::ast;
 
 /// A model field, scalar or relation.
-pub type FieldWalker<'db> = Walker<'db, (crate::ModelId, ast::FieldId)>;
+pub type FieldWalker<'db> = Walker<'db, (crate::ModelIdInFile, ast::FieldId)>;
 
 impl<'db> FieldWalker<'db> {
     /// The AST node for the field.

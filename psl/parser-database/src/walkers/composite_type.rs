@@ -21,10 +21,10 @@ use super::EnumWalker;
 ///     countryCode String
 /// }
 /// ```
-pub type CompositeTypeWalker<'db> = Walker<'db, crate::CompositeTypeId>;
+pub type CompositeTypeWalker<'db> = Walker<'db, crate::CompositeTypeIdInFile>;
 
 /// A field in a composite type.
-pub type CompositeTypeFieldWalker<'db> = Walker<'db, (crate::CompositeTypeId, ast::FieldId)>;
+pub type CompositeTypeFieldWalker<'db> = Walker<'db, (crate::CompositeTypeIdInFile, ast::FieldId)>;
 
 impl<'db> CompositeTypeWalker<'db> {
     /// The ID of the composite type node in the AST.

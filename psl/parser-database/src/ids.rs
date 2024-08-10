@@ -5,19 +5,22 @@ use schema_ast::ast;
 pub type InFile<Id> = (FileId, Id);
 
 /// See [ast::ModelId]
-pub type ModelId = InFile<ast::ModelId>;
+pub type ModelIdInFile = InFile<ast::ModelId>;
 
 /// See [ast::EnumId]
-pub type EnumId = InFile<ast::EnumId>;
+pub type EnumIdInFile = InFile<ast::EnumId>;
+
+/// See [ast::ComputedEnumId]
+pub type ComputedEnumIdInFile = InFile<ast::ComputedEnumId>;
 
 /// See [ast::CompositeTypeId]
-pub type CompositeTypeId = InFile<ast::CompositeTypeId>;
+pub type CompositeTypeIdInFile = InFile<ast::CompositeTypeId>;
 
 /// See [ast::TopId]
-pub type TopId = InFile<ast::TopId>;
+pub type TopIdInFile = InFile<ast::TopId>;
 
 /// See [ast::AttributeId]
-pub type AttributeId = InFile<ast::AttributeId>;
+pub type AttributeIdInFile = InFile<ast::AttributeId>;
 
 /// See [ast::AttributeContainer]
-pub type AttributeContainer = InFile<ast::AttributeContainer>;
+pub type AttributeContainerInFile = InFile<ast::AttributeContainer>;

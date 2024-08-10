@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// Any top declaration in the Prisma schema.
-pub type TopWalker<'db> = super::Walker<'db, crate::TopId>;
+pub type TopWalker<'db> = super::Walker<'db, crate::TopIdInFile>;
 
 impl<'db> TopWalker<'db> {
     /// The name of the model.

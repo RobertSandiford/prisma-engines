@@ -354,7 +354,7 @@ fn push_column_for_scalar_field(field: ScalarFieldWalker<'_>, table_id: sql::Tab
 
 fn push_column_for_model_enum_scalar_field(
     field: ScalarFieldWalker<'_>,
-    enum_id: db::EnumId,
+    enum_id: db::EnumIdInFile,
     table_id: sql::TableId,
     ctx: &mut Context<'_>,
 ) {
@@ -576,8 +576,8 @@ pub(crate) struct Context<'a> {
     schema: &'a mut SqlDatabaseSchema,
     flavour: &'a dyn SqlFlavour,
     schemas: HashMap<&'a str, sql::NamespaceId>,
-    model_id_to_table_id: HashMap<db::ModelId, sql::TableId>,
-    enum_ids: HashMap<db::EnumId, sql::EnumId>,
+    model_id_to_table_id: HashMap<db::ModelIdInFile, sql::TableId>,
+    enum_ids: HashMap<db::EnumIdInFile, sql::EnumId>,
 }
 
 impl Context<'_> {

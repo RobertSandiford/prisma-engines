@@ -18,7 +18,7 @@ pub(crate) type ModelPair<'a> = IntrospectionPair<'a, Option<walkers::ModelWalke
 impl<'a> ModelPair<'a> {
     /// The position of the model from the PSL, if existing. Used for
     /// sorting the models in the final introspected data model.
-    pub(crate) fn previous_position(self) -> Option<db::ModelId> {
+    pub(crate) fn previous_position(self) -> Option<db::ModelIdInFile> {
         self.previous.map(|m| m.id)
     }
 

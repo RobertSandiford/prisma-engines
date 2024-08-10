@@ -4,7 +4,7 @@ use crate::{context::Context, interner::StringId, walkers::IndexFieldWalker, Dat
 use either::Either;
 use enumflags2::bitflags;
 use rustc_hash::FxHashMap as HashMap;
-use schema_ast::ast::{self, EnumValueId, WithName};
+use schema_ast::ast::{self, ComputedEnumId, ComputedTypeExpression, EnumId, EnumValueId, FieldValue, Identifier, WithName};
 use std::{collections::BTreeMap, fmt};
 
 pub(super) fn resolve_types(ctx: &mut Context<'_>) {
@@ -29,13 +29,14 @@ pub enum RefinedFieldVariant {
 
 #[derive(Debug, Default)]
 pub(super) struct Types {
-    pub(super) composite_type_fields: BTreeMap<(crate::CompositeTypeId, ast::FieldId), CompositeTypeField>,
+    pub(super) composite_type_fields: BTreeMap<(crate::CompositeTypeIdInFile, ast::FieldId), CompositeTypeField>,
     scalar_fields: Vec<ScalarField>,
     /// This contains only the relation fields actually present in the schema
     /// source text.
     relation_fields: Vec<RelationField>,
-    pub(super) enum_attributes: HashMap<crate::EnumId, EnumAttributes>,
-    pub(super) model_attributes: HashMap<crate::ModelId, ModelAttributes>,
+    computed_fields: Vec<ComputedField>,
+    pub(super) enum_attributes: HashMap<crate::EnumIdInFile, EnumAttributes>,
+    pub(super) model_attributes: HashMap<crate::ModelIdInFile, ModelAttributes>,
     /// Sorted array of scalar fields that have an `@default()` attribute with a function that is
     /// not part of the base Prisma ones. This is meant for later validation in the datamodel
     /// connector.
@@ -45,7 +46,7 @@ pub(super) struct Types {
 impl Types {
     pub(super) fn find_model_scalar_field(
         &self,
-        model_id: crate::ModelId,
+        model_id: crate::ModelIdInFile,
         field_id: ast::FieldId,
     ) -> Option<ScalarFieldId> {
         self.scalar_fields
@@ -56,7 +57,7 @@ impl Types {
 
     pub(super) fn range_model_scalar_fields(
         &self,
-        model_id: crate::ModelId,
+        model_id: crate::ModelIdInFile,
     ) -> impl Iterator<Item = (ScalarFieldId, &ScalarField)> + Clone {
         let start = self.scalar_fields.partition_point(|sf| sf.model_id < model_id);
         self.scalar_fields[start..]
@@ -79,7 +80,7 @@ impl Types {
 
     pub(super) fn range_model_scalar_field_ids(
         &self,
-        model_id: crate::ModelId,
+        model_id: crate::ModelIdInFile,
     ) -> impl Iterator<Item = ScalarFieldId> + Clone {
         let end = self.scalar_fields.partition_point(|sf| sf.model_id <= model_id);
         let start = self.scalar_fields[..end].partition_point(|sf| sf.model_id < model_id);
@@ -88,7 +89,7 @@ impl Types {
 
     pub(super) fn range_model_relation_fields(
         &self,
-        model_id: crate::ModelId,
+        model_id: crate::ModelIdInFile,
     ) -> impl Iterator<Item = (RelationFieldId, &RelationField)> + Clone {
         let first_relation_field_idx = self.relation_fields.partition_point(|rf| rf.model_id < model_id);
         self.relation_fields[first_relation_field_idx..]
@@ -98,7 +99,7 @@ impl Types {
             .map(move |(idx, rf)| (RelationFieldId((first_relation_field_idx + idx) as u32), rf))
     }
 
-    pub(super) fn refine_field(&self, id: (crate::ModelId, ast::FieldId)) -> RefinedFieldVariant {
+    pub(super) fn refine_field(&self, id: (crate::ModelIdInFile, ast::FieldId)) -> RefinedFieldVariant {
         self.relation_fields
             .binary_search_by_key(&id, |rf| (rf.model_id, rf.field_id))
             .map(|idx| RefinedFieldVariant::Relation(RelationFieldId(idx as u32)))
@@ -119,6 +120,13 @@ impl Types {
     pub(super) fn push_scalar_field(&mut self, scalar_field: ScalarField) -> ScalarFieldId {
         let id = ScalarFieldId(self.scalar_fields.len() as u32);
         self.scalar_fields.push(scalar_field);
+        id
+    }
+
+    // added
+    pub(super) fn push_computed_field(&mut self, computed_field: ComputedField) -> ComputedFieldId {
+        let id = ComputedFieldId(self.computed_fields.len() as u32);
+        self.computed_fields.push(computed_field);
         id
     }
 }
@@ -166,8 +174,9 @@ pub(super) struct CompositeTypeField {
 
 #[derive(Debug)]
 enum FieldType {
-    Model(crate::ModelId),
+    Model(crate::ModelIdInFile),
     Scalar(ScalarFieldType),
+    Computed(ComputedTypeExpression)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -185,9 +194,9 @@ impl UnsupportedType {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ScalarFieldType {
     /// A composite type
-    CompositeType(crate::CompositeTypeId),
+    CompositeType(crate::CompositeTypeIdInFile),
     /// An enum
-    Enum(crate::EnumId),
+    Enum(crate::EnumIdInFile),
     /// A Prisma scalar type
     BuiltInScalar(ScalarType),
     /// An `Unsupported("...")` type
@@ -204,7 +213,7 @@ impl ScalarFieldType {
     }
 
     /// Try to interpret this field type as a Composite Type.
-    pub fn as_composite_type(self) -> Option<crate::CompositeTypeId> {
+    pub fn as_composite_type(self) -> Option<crate::CompositeTypeIdInFile> {
         match self {
             ScalarFieldType::CompositeType(id) => Some(id),
             _ => None,
@@ -212,7 +221,7 @@ impl ScalarFieldType {
     }
 
     /// Try to interpret this field type as an enum.
-    pub fn as_enum(self) -> Option<crate::EnumId> {
+    pub fn as_enum(self) -> Option<crate::EnumIdInFile> {
         match self {
             ScalarFieldType::Enum(id) => Some(id),
             _ => None,
@@ -269,12 +278,13 @@ impl ScalarFieldType {
 pub(crate) struct DefaultAttribute {
     pub(crate) mapped_name: Option<StringId>,
     pub(crate) argument_idx: usize,
-    pub(crate) default_attribute: crate::AttributeId,
+    pub(crate) default_attribute: crate::AttributeIdInFile,
 }
+
 
 #[derive(Debug)]
 pub(crate) struct ScalarField {
-    pub(crate) model_id: crate::ModelId,
+    pub(crate) model_id: crate::ModelIdInFile,
     pub(crate) field_id: ast::FieldId,
     pub(crate) r#type: ScalarFieldType,
     pub(crate) is_ignored: bool,
@@ -290,11 +300,44 @@ pub(crate) struct ScalarField {
     pub(crate) native_type: Option<(StringId, StringId, Vec<String>, ast::Span)>,
 }
 
+// A computed enum type
+#[derive(Debug)]
+pub(crate) struct ComputedEnum {
+    // the name of the field
+    //pub(crate) name: Identifier,
+    // the computed enum values
+    pub values: Vec<ComputedEnumValue>,
+}
+
+// A computed enum value.
+#[derive(Debug)]
+pub struct ComputedEnumValue(String);
+
+// A ComputedTypeExpression needs to be evaluated, to create a ComputedType
+#[derive(Debug)]
+pub(crate) enum ComputedType {
+    Enum(ComputedEnum)
+}
+
+#[derive(Debug)]
+pub(crate) struct ComputedField {
+    pub(crate) model_id: crate::ModelIdInFile,
+    pub(crate) field_id: ast::FieldId,
+    //pub(crate) r#type: ComputedFieldType,
+    pub(crate) computed_type: ComputedType,
+    // is_ignored
+    // ip_updated_at
+    pub(crate) default: Option<DefaultAttribute>,
+    /// @map
+    pub(crate) mapped_name: Option<StringId>,
+    // native_type
+}
+
 #[derive(Debug)]
 pub(crate) struct RelationField {
-    pub(crate) model_id: crate::ModelId,
+    pub(crate) model_id: crate::ModelIdInFile,
     pub(crate) field_id: ast::FieldId,
-    pub(crate) referenced_model: crate::ModelId,
+    pub(crate) referenced_model: crate::ModelIdInFile,
     pub(crate) on_delete: Option<(crate::ReferentialAction, ast::Span)>,
     pub(crate) on_update: Option<(crate::ReferentialAction, ast::Span)>,
     /// The fields _explicitly present_ in the AST.
@@ -310,7 +353,7 @@ pub(crate) struct RelationField {
 }
 
 impl RelationField {
-    fn new(model_id: crate::ModelId, field_id: ast::FieldId, referenced_model: crate::ModelId) -> Self {
+    fn new(model_id: crate::ModelIdInFile, field_id: ast::FieldId, referenced_model: crate::ModelIdInFile) -> Self {
         RelationField {
             model_id,
             field_id,
@@ -499,7 +542,7 @@ impl IndexAttribute {
 pub(crate) struct IdAttribute {
     pub(crate) fields: Vec<FieldWithArgs>,
     pub(super) source_field: Option<ast::FieldId>,
-    pub(super) source_attribute: crate::AttributeId,
+    pub(super) source_attribute: crate::AttributeIdInFile,
     pub(super) name: Option<StringId>,
     pub(super) mapped_name: Option<StringId>,
     pub(super) clustered: Option<bool>,
@@ -553,7 +596,7 @@ pub struct IndexFieldPath {
     /// //           ^this one is the path. in this case a vector of one element
     /// }
     /// ```
-    path: Vec<(crate::CompositeTypeId, ast::FieldId)>,
+    path: Vec<(crate::CompositeTypeIdInFile, ast::FieldId)>,
 }
 
 impl IndexFieldPath {
@@ -561,7 +604,7 @@ impl IndexFieldPath {
         Self { root, path: Vec::new() }
     }
 
-    pub(crate) fn push_field(&mut self, ctid: crate::CompositeTypeId, field_id: ast::FieldId) {
+    pub(crate) fn push_field(&mut self, ctid: crate::CompositeTypeIdInFile, field_id: ast::FieldId) {
         self.path.push((ctid, field_id));
     }
 
@@ -601,7 +644,7 @@ impl IndexFieldPath {
     ///   @@index([a.field])
     /// }
     /// ```
-    pub fn path(&self) -> &[(crate::CompositeTypeId, ast::FieldId)] {
+    pub fn path(&self) -> &[(crate::CompositeTypeIdInFile, ast::FieldId)] {
         &self.path
     }
 
@@ -609,7 +652,7 @@ impl IndexFieldPath {
     /// or in a composite type embedded in the model. Returns the same value as
     /// the [`root`](Self::root()) method if the field is in a model rather than in a
     /// composite type.
-    pub fn field_in_index(&self) -> Either<ScalarFieldId, (crate::CompositeTypeId, ast::FieldId)> {
+    pub fn field_in_index(&self) -> Either<ScalarFieldId, (crate::CompositeTypeIdInFile, ast::FieldId)> {
         self.path
             .last()
             .map(|(ct, field)| Either::Right((*ct, *field)))
@@ -637,9 +680,15 @@ pub(super) struct EnumAttributes {
     pub(crate) schema: Option<(StringId, ast::Span)>,
 }
 
-fn visit_model<'db>(model_id: crate::ModelId, ast_model: &'db ast::Model, ctx: &mut Context<'db>) {
+// todo: handle computed types and function calls here
+fn visit_model<'db>(model_id: crate::ModelIdInFile, ast_model: &'db ast::Model, ctx: &mut Context<'db>) {
+    println!("Visit Model");
+    
     for (field_id, ast_field) in ast_model.iter_fields() {
-        match field_type(ast_field, ctx) {
+        println!("ast_field: {ast_field:?}");
+        let ft = field_type(ast_field, ctx);
+        println!("ft: {ft:?}");
+        match ft {
             Ok(FieldType::Model(referenced_model)) => {
                 let rf = RelationField::new(model_id, field_id, referenced_model);
                 ctx.types.push_relation_field(rf);
@@ -656,7 +705,41 @@ fn visit_model<'db>(model_id: crate::ModelId, ast_model: &'db ast::Model, ctx: &
                     native_type: None,
                 });
             }
+            Ok(FieldType::Computed(computed)) => {
+
+                // this is a computed type
+                // the only computed type currently is @tables
+                // this maps to an enum
+
+                // How do we evaluate the function?
+
+                let computed_enum = ComputedEnum {
+                    //name: computed.name,
+                    values: vec![
+                        ComputedEnumValue(String::from("1")),
+                        ComputedEnumValue(String::from("2"))
+                    ],
+                    //attributes: 1,
+                    //documentation: 1, //comment,
+                    //span: computed.span, //Span::from((file_id, pair_span)),
+                    //inner_span: computed.span.try_into(), // inner_span.unwrap(),
+                };
+ 
+                ctx.types.push_computed_field(ComputedField {
+                    model_id,
+                    field_id,
+                    //r#type: ScalarFieldType::ComputedEnum(computed_enum_id_with_file),
+                    computed_type: ComputedType::Enum((computed_enum)),
+                    //is_ignored: false,
+                    //is_updated_at: false,
+                    default: None,
+                    mapped_name: None,
+                    //native_type: None,
+                });
+            }
             Err(supported) => {
+                println!("This looks like a fallback for if the above code did not match");
+
                 let top_names: Vec<_> = ctx
                     .iter_tops()
                     .filter_map(|(_, top)| match top {
@@ -664,6 +747,10 @@ fn visit_model<'db>(model_id: crate::ModelId, ast_model: &'db ast::Model, ctx: &
                         _ => Some(&top.identifier().name),
                     })
                     .collect();
+
+                
+                println!("supported: {supported:?}");
+                println!("top_names: {top_names:?}");
 
                 match top_names.iter().find(|&name| name.to_lowercase() == supported) {
                     Some(ignore_case_match) => {
@@ -673,19 +760,25 @@ fn visit_model<'db>(model_id: crate::ModelId, ast_model: &'db ast::Model, ctx: &
                             ast_field.field_type.span(),
                         ));
                     }
-                    None => match ScalarType::try_from_str(supported, true) {
-                        Some(ignore_case_match) => {
-                            ctx.push_error(DatamodelError::new_type_for_case_not_found_error(
-                                supported,
-                                ignore_case_match.as_str(),
-                                ast_field.field_type.span(),
-                            ));
-                        }
-                        None => {
-                            ctx.push_error(DatamodelError::new_type_not_found_error(
-                                supported,
-                                ast_field.field_type.span(),
-                            ));
+                    None => {
+                        // search for a DB type
+                        println!("supported: {supported:?}");
+                        match ScalarType::try_from_str(supported, true) {
+                            Some(ignore_case_match) => {
+                                ctx.push_error(DatamodelError::new_type_for_case_not_found_error(
+                                    supported,
+                                    ignore_case_match.as_str(),
+                                    ast_field.field_type.span(),
+                                ));
+                            }
+                            None => { // this is the section hit for an unrecognized computed type
+                                let mut label: String = String::from("A| ");
+                                label.push_str(supported);
+                                ctx.push_error(DatamodelError::new_type_not_found_error(
+                                    &label,
+                                    ast_field.field_type.span(),
+                                ));
+                            }
                         }
                     },
                 }
@@ -694,7 +787,7 @@ fn visit_model<'db>(model_id: crate::ModelId, ast_model: &'db ast::Model, ctx: &
     }
 }
 
-fn visit_composite_type<'db>(ct_id: crate::CompositeTypeId, ct: &'db ast::CompositeType, ctx: &mut Context<'db>) {
+fn visit_composite_type<'db>(ct_id: crate::CompositeTypeIdInFile, ct: &'db ast::CompositeType, ctx: &mut Context<'db>) {
     for (field_id, ast_field) in ct.iter_fields() {
         match field_type(ast_field, ctx) {
             Ok(FieldType::Scalar(scalar_type)) => {
@@ -710,10 +803,15 @@ fn visit_composite_type<'db>(ct_id: crate::CompositeTypeId, ct: &'db ast::Compos
                 let referenced_model_name = ctx.asts[referenced_model_id].name();
                 ctx.push_error(DatamodelError::new_composite_type_validation_error(&format!("{referenced_model_name} refers to a model, making this a relation field. Relation fields inside composite types are not supported."), ct.name(), ast_field.field_type.span()))
             }
-            Err(supported) => ctx.push_error(DatamodelError::new_type_not_found_error(
-                supported,
-                ast_field.field_type.span(),
-            )),
+            Ok(FieldType::Computed(computed)) => {
+                panic!("composite types are not expected to contain computed types");
+            }
+            Err(supported) => {
+                ctx.push_error(DatamodelError::new_type_not_found_error(
+                    &supported,
+                    ast_field.field_type.span(),
+                ))
+            },
         }
     }
 }
@@ -729,7 +827,10 @@ fn visit_enum<'db>(enm: &'db ast::Enum, ctx: &mut Context<'db>) {
 /// does not match any we know of.
 fn field_type<'db>(field: &'db ast::Field, ctx: &mut Context<'db>) -> Result<FieldType, &'db str> {
     let supported = match &field.field_type {
-        ast::FieldType::Supported(ident) => &ident.name,
+        ast::FieldType::Supported(value) => match value {
+            FieldValue::Identifier(ident) => &ident.name,
+            FieldValue::ComputedType(computed) => &computed.name,
+        }
         ast::FieldType::Unsupported(name, _) => {
             let unsupported = UnsupportedType::new(ctx.interner.intern(name));
             return Ok(FieldType::Scalar(ScalarFieldType::Unsupported(unsupported)));
@@ -1505,3 +1606,7 @@ pub struct RelationFieldId(u32);
 /// An opaque identifier for a model scalar field in a schema.
 #[derive(Copy, Clone, PartialEq, Debug, Eq, Hash)]
 pub struct ScalarFieldId(u32);
+
+/// An opaque identifier for a model computed field in a schema.
+#[derive(Copy, Clone, PartialEq, Debug, Eq, Hash)]
+pub struct ComputedFieldId(u32);

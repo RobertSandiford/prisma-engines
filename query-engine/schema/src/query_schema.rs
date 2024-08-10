@@ -218,7 +218,7 @@ impl QuerySchema {
 /// Designates a specific top-level operation on a corresponding model.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct QueryInfo {
-    pub model: Option<db::ModelId>,
+    pub model: Option<db::ModelIdInFile>,
     pub tag: QueryTag,
 }
 

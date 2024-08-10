@@ -1,7 +1,8 @@
 use std::fmt::Display;
+use crate::ast::{self};
 
 use super::{
-    Attribute, Comment, Identifier, Span, WithAttributes, WithDocumentation, WithIdentifier, WithName, WithSpan,
+    Attribute, Comment, Identifier, Span, WithAttributes, WithDocumentation, WithIdentifier, WithName, WithSpan
 };
 
 /// A field definition in a model or a composite type.
@@ -146,9 +147,23 @@ impl FieldArity {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
+pub struct ComputedTypeExpression {
+    pub name: String,
+    //pub identifier: Identifier,
+    pub arguments: ast::ArgumentsList,
+    pub span: Span
+}
+
+#[derive(Debug, Clone)]
+pub enum FieldValue {
+    Identifier(Identifier),
+    ComputedType(ComputedTypeExpression)
+}
+
+#[derive(Debug, Clone)]
 pub enum FieldType {
-    Supported(Identifier),
+    Supported(FieldValue),
     /// Unsupported("...")
     Unsupported(String, Span),
 }
@@ -156,14 +171,20 @@ pub enum FieldType {
 impl FieldType {
     pub fn span(&self) -> Span {
         match self {
-            FieldType::Supported(ident) => ident.span,
+            FieldType::Supported(field_value) => match field_value {
+                FieldValue::Identifier(identifier) => identifier.span,
+                FieldValue::ComputedType(computed_type) => computed_type.span
+            },
             FieldType::Unsupported(_, span) => *span,
         }
     }
 
     pub fn name(&self) -> &str {
         match self {
-            FieldType::Supported(supported) => &supported.name,
+            FieldType::Supported(supported) => match supported {
+                FieldValue::Identifier(identifier) => &identifier.name,
+                FieldValue::ComputedType(computed_type) => &computed_type.name
+            }
             FieldType::Unsupported(name, _) => name,
         }
     }

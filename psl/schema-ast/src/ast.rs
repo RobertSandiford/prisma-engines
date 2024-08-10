@@ -4,6 +4,7 @@ mod comment;
 mod composite_type;
 mod config;
 mod r#enum;
+mod computed_enum;
 mod expression;
 mod field;
 mod find_at_position;
@@ -24,7 +25,7 @@ pub use composite_type::{CompositeType, CompositeTypeId};
 pub use config::ConfigBlockProperty;
 pub use diagnostics::Span;
 pub use expression::Expression;
-pub use field::{Field, FieldArity, FieldType};
+pub use field::{Field, FieldArity, ComputedTypeExpression, FieldType, FieldValue};
 pub use find_at_position::*;
 pub use generator_config::GeneratorConfig;
 pub use identifier::Identifier;
@@ -32,6 +33,7 @@ pub use indentation_type::IndentationType;
 pub use model::{FieldId, Model};
 pub use newline_type::NewlineType;
 pub use r#enum::{Enum, EnumValue, EnumValueId};
+//pub use computed_enum::{ComputedEnum, ComputedEnumValue, ComputedEnumValueId};
 pub use source_config::SourceConfig;
 pub use top::Top;
 pub use traits::{WithAttributes, WithDocumentation, WithIdentifier, WithName, WithSpan};
@@ -94,6 +96,9 @@ impl std::ops::Index<ModelId> for SchemaAst {
 /// An opaque identifier for an enum in a schema AST.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EnumId(u32);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ComputedEnumId(u32);
 
 impl std::ops::Index<EnumId> for SchemaAst {
     type Output = Enum;
