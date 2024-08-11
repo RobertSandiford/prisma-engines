@@ -176,7 +176,7 @@ pub(super) struct CompositeTypeField {
 enum FieldType {
     Model(crate::ModelIdInFile),
     Scalar(ScalarFieldType),
-    Computed(ComputedTypeExpression)
+    Computed(ComputedType)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -683,11 +683,14 @@ pub(super) struct EnumAttributes {
 // todo: handle computed types and function calls here
 fn visit_model<'db>(model_id: crate::ModelIdInFile, ast_model: &'db ast::Model, ctx: &mut Context<'db>) {
     println!("Visit Model");
+    println!("");
     
     for (field_id, ast_field) in ast_model.iter_fields() {
         println!("ast_field: {ast_field:?}");
+        println!("");
         let ft = field_type(ast_field, ctx);
         println!("ft: {ft:?}");
+        println!("");
         match ft {
             Ok(FieldType::Model(referenced_model)) => {
                 let rf = RelationField::new(model_id, field_id, referenced_model);
@@ -705,31 +708,13 @@ fn visit_model<'db>(model_id: crate::ModelIdInFile, ast_model: &'db ast::Model, 
                     native_type: None,
                 });
             }
-            Ok(FieldType::Computed(computed)) => {
-
-                // this is a computed type
-                // the only computed type currently is @tables
-                // this maps to an enum
-
-                // How do we evaluate the function?
-
-                let computed_enum = ComputedEnum {
-                    //name: computed.name,
-                    values: vec![
-                        ComputedEnumValue(String::from("1")),
-                        ComputedEnumValue(String::from("2"))
-                    ],
-                    //attributes: 1,
-                    //documentation: 1, //comment,
-                    //span: computed.span, //Span::from((file_id, pair_span)),
-                    //inner_span: computed.span.try_into(), // inner_span.unwrap(),
-                };
- 
+            Ok(FieldType::Computed(computed_type)) => {
+                // this is a computed type e.g. $tables()
                 ctx.types.push_computed_field(ComputedField {
                     model_id,
                     field_id,
                     //r#type: ScalarFieldType::ComputedEnum(computed_enum_id_with_file),
-                    computed_type: ComputedType::Enum((computed_enum)),
+                    computed_type: computed_type,
                     //is_ignored: false,
                     //is_updated_at: false,
                     default: None,
@@ -739,6 +724,7 @@ fn visit_model<'db>(model_id: crate::ModelIdInFile, ast_model: &'db ast::Model, 
             }
             Err(supported) => {
                 println!("This looks like a fallback for if the above code did not match");
+                println!("");
 
                 let top_names: Vec<_> = ctx
                     .iter_tops()
@@ -748,9 +734,10 @@ fn visit_model<'db>(model_id: crate::ModelIdInFile, ast_model: &'db ast::Model, 
                     })
                     .collect();
 
-                
                 println!("supported: {supported:?}");
+                println!("");
                 println!("top_names: {top_names:?}");
+                println!("");
 
                 match top_names.iter().find(|&name| name.to_lowercase() == supported) {
                     Some(ignore_case_match) => {
@@ -763,6 +750,7 @@ fn visit_model<'db>(model_id: crate::ModelIdInFile, ast_model: &'db ast::Model, 
                     None => {
                         // search for a DB type
                         println!("supported: {supported:?}");
+                        println!("");
                         match ScalarType::try_from_str(supported, true) {
                             Some(ignore_case_match) => {
                                 ctx.push_error(DatamodelError::new_type_for_case_not_found_error(
@@ -823,41 +811,129 @@ fn visit_enum<'db>(enm: &'db ast::Enum, ctx: &mut Context<'db>) {
     }
 }
 
+fn get_top_names<'db>(ctx: &mut Context<'db>) -> Vec<&'db String> {
+    let top_names: Vec<_> = ctx
+        .iter_tops()
+        .filter_map(|(_, top)| match top {
+            ast::Top::Source(_) | ast::Top::Generator(_) => None,
+            _ => Some(&top.identifier().name),
+        })
+        .collect();
+    return top_names
+}
 /// Either a structured, supported type, or an Err(unsupported) if the type name
 /// does not match any we know of.
 fn field_type<'db>(field: &'db ast::Field, ctx: &mut Context<'db>) -> Result<FieldType, &'db str> {
-    let supported = match &field.field_type {
+
+    // need to handle computed types here
+    // perhaps evaluate the expression here
+    match &field.field_type {
         ast::FieldType::Supported(value) => match value {
-            FieldValue::Identifier(ident) => &ident.name,
-            FieldValue::ComputedType(computed) => &computed.name,
+            FieldValue::Identifier(ident) => {
+                let type_name = &ident.name;
+                let supported_string_id = ctx.interner.intern(type_name);
+                if let Some(tpe) = ScalarType::try_from_str(type_name, false) {
+                    return Ok(FieldType::Scalar(ScalarFieldType::BuiltInScalar(tpe)));
+                }
+                match ctx
+                    .names
+                    .tops
+                    .get(&supported_string_id)
+                    .map(|id| (id.0, id.1, &ctx.asts[*id]))
+                {
+                    Some((file_id, ast::TopId::Model(model_id), ast::Top::Model(_))) => Ok(FieldType::Model((file_id, model_id))),
+                    Some((file_id, ast::TopId::Enum(enum_id), ast::Top::Enum(_))) => {
+                        Ok(FieldType::Scalar(ScalarFieldType::Enum((file_id, enum_id))))
+                    }
+                    Some((file_id, ast::TopId::CompositeType(ctid), ast::Top::CompositeType(_))) => {
+                        Ok(FieldType::Scalar(ScalarFieldType::CompositeType((file_id, ctid))))
+                    }
+                    Some((_, _, ast::Top::Generator(_))) | Some((_, _, ast::Top::Source(_))) => unreachable!(),
+                    None => Err(type_name),
+                    _ => unreachable!(),
+                }
+            },
+            FieldValue::ComputedType(function) => {
+                // return Ok(FieldType::Scalar(ScalarFieldType::BuiltInScalar(ScalarType::Int)));
+
+                
+                println!("Found a computed type");
+                println!("");
+                let function_name_id = ctx.interner.intern(&function.name);
+                let function_name = function.name.as_str();
+                println!("{function_name:?}");
+                println!("");
+
+                match function_name {
+                    "tables" => {
+                        let mut values: Vec<ComputedEnumValue> = vec![];
+                        let top_names = get_top_names(ctx);
+                        println!("Look for $tables arguments in top names");
+                        println!("{top_names:?}");
+                        println!("");
+                        for arg in function.arguments.arguments.as_slice() {
+                            //let x = top
+                            // we need to see if the name exists in the known model names
+                            // otherwise error/diagnostics/panic
+                            //arg.name;
+                            match &arg.name {
+                                Some(ident) => {
+                                    match top_names.iter().find(|name| ***name == ident.name) {
+                                        Some(name) => {
+                                            values.push(ComputedEnumValue((*name).clone()));
+                                        },
+                                        None => {
+                                            ctx.push_error(DatamodelError::new_invalid_model_error(
+                                                ident.name.as_str(),
+                                                function.span,
+                                            ));
+                                            return Err("$tables identifier argument is not a valid model");
+                                        }
+                                    }
+                                }
+                                None => {
+                                    return Err("$tables identifier argument has no name");
+                                }
+                            }
+                        }
+                        Ok(FieldType::Computed(ComputedType::Enum(ComputedEnum {
+                            //name: computed.name,
+                            values,
+                            //attributes: 1,
+                            //documentation: 1, //comment,
+                            //span: computed.span, //Span::from((file_id, pair_span)),
+                            //inner_span: computed.span.try_into(), // inner_span.unwrap(),
+                        })))
+                    },
+                    _ => {
+                        //panic!("Unknown function \"{function_name:?}\" in computed type")
+                        ctx.push_error(DatamodelError::new_computed_type_unknown_function(
+                            function_name,
+                            function.span,
+                        ));
+                        Err("computed type function not found")
+                    }
+                }
+
+                // look for a supported function matching function_name
+
+                // create the computed type
+                // let computed_type = ComputedEnum {
+                //     values: vec![
+                //         ComputedEnumValue(String::from("placeholder"))
+                //     ]
+                // };
+
+                // return
+                
+                
+            },
+            //_ => Ok(FieldType::Scalar(ScalarFieldType::BuiltInScalar(ScalarType::Int)))
         }
         ast::FieldType::Unsupported(name, _) => {
             let unsupported = UnsupportedType::new(ctx.interner.intern(name));
             return Ok(FieldType::Scalar(ScalarFieldType::Unsupported(unsupported)));
         }
-    };
-    let supported_string_id = ctx.interner.intern(supported);
-
-    if let Some(tpe) = ScalarType::try_from_str(supported, false) {
-        return Ok(FieldType::Scalar(ScalarFieldType::BuiltInScalar(tpe)));
-    }
-
-    match ctx
-        .names
-        .tops
-        .get(&supported_string_id)
-        .map(|id| (id.0, id.1, &ctx.asts[*id]))
-    {
-        Some((file_id, ast::TopId::Model(model_id), ast::Top::Model(_))) => Ok(FieldType::Model((file_id, model_id))),
-        Some((file_id, ast::TopId::Enum(enum_id), ast::Top::Enum(_))) => {
-            Ok(FieldType::Scalar(ScalarFieldType::Enum((file_id, enum_id))))
-        }
-        Some((file_id, ast::TopId::CompositeType(ctid), ast::Top::CompositeType(_))) => {
-            Ok(FieldType::Scalar(ScalarFieldType::CompositeType((file_id, ctid))))
-        }
-        Some((_, _, ast::Top::Generator(_))) | Some((_, _, ast::Top::Source(_))) => unreachable!(),
-        None => Err(supported),
-        _ => unreachable!(),
     }
 }
 

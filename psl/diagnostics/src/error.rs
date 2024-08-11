@@ -332,6 +332,14 @@ impl DatamodelError {
         )
     }
 
+    pub fn new_computed_type_unknown_function(function_name: &str, span: Span) -> DatamodelError {
+        DatamodelError::new(format!(
+                "Unknown function in computed type: `${function_name}` is not known."
+            ),
+            span
+        )
+    }
+
     pub fn new_invalid_model_error(msg: &str, span: Span) -> DatamodelError {
         DatamodelError::new(format!("Invalid model: {msg}"), span)
     }
