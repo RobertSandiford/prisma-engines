@@ -2,7 +2,7 @@ use std::fmt::Display;
 use crate::ast::{self};
 
 use super::{
-    Attribute, Comment, Identifier, Span, WithAttributes, WithDocumentation, WithIdentifier, WithName, WithSpan
+    union::Union, Attribute, Comment, Identifier, Span, WithAttributes, WithDocumentation, WithIdentifier, WithName, WithSpan
 };
 
 /// A field definition in a model or a composite type.
@@ -151,13 +151,14 @@ impl FieldArity {
 pub struct ComputedTypeExpression {
     pub name: String,
     //pub identifier: Identifier,
-    pub arguments: ast::ArgumentsList,
+    pub arguments: ast::ComputedTypeArgumentsList,
     pub span: Span
 }
 
 #[derive(Debug, Clone)]
 pub enum FieldValue {
     Identifier(Identifier),
+    Union(Union),
     ComputedType(ComputedTypeExpression)
 }
 
@@ -173,16 +174,18 @@ impl FieldType {
         match self {
             FieldType::Supported(field_value) => match field_value {
                 FieldValue::Identifier(identifier) => identifier.span,
+                FieldValue::Union(u) => u.span, 
                 FieldValue::ComputedType(computed_type) => computed_type.span
             },
             FieldType::Unsupported(_, span) => *span,
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub fn name(&self) -> &str { // Do unions have names? Should it be the whole content?
         match self {
             FieldType::Supported(supported) => match supported {
                 FieldValue::Identifier(identifier) => &identifier.name,
+                FieldValue::Union(u) => "", 
                 FieldValue::ComputedType(computed_type) => &computed_type.name
             }
             FieldType::Unsupported(name, _) => name,

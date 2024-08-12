@@ -1,0 +1,19 @@
+datasource test {
+  provider = "mysql"
+  url = env("TEST_DATABASE_URL")
+}
+
+model A {
+  id                Int     @id
+}
+
+model C {
+  id                Int     @id
+  foreignTable      $tables(A, B)
+}
+// [1;91merror[0m: [1mInvalid model: B[0m
+//   [1;94m-->[0m  [4mschema.prisma:12[0m
+// [1;94m   | [0m
+// [1;94m11 | [0m  id                Int     @id
+// [1;94m12 | [0m  foreignTable      $tables(A, [1;91mB[0m)
+// [1;94m   | [0m

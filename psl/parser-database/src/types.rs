@@ -4,7 +4,7 @@ use crate::{context::Context, interner::StringId, walkers::IndexFieldWalker, Dat
 use either::Either;
 use enumflags2::bitflags;
 use rustc_hash::FxHashMap as HashMap;
-use schema_ast::ast::{self, ComputedEnumId, ComputedTypeExpression, EnumId, EnumValueId, FieldValue, Identifier, WithName};
+use schema_ast::ast::{self, ComputedEnumId, ComputedTypeExpression, EnumId, EnumValueId, Field, FieldValue, Identifier, WithName};
 use std::{collections::BTreeMap, fmt};
 
 pub(super) fn resolve_types(ctx: &mut Context<'_>) {
@@ -117,6 +117,12 @@ impl Types {
         id
     }
 
+    pub(super) fn push_polymorphic_relation_field(&mut self, polymorphic_relation_field: PolymorphicRelationField) -> PolymorphicRelationFieldId {
+        let id = PolymorphicRelationFieldId(self.relation_fields.len() as u32);
+        self.relation_fields.push(polymorphic_relation_field);
+        id
+    }
+
     pub(super) fn push_scalar_field(&mut self, scalar_field: ScalarField) -> ScalarFieldId {
         let id = ScalarFieldId(self.scalar_fields.len() as u32);
         self.scalar_fields.push(scalar_field);
@@ -175,6 +181,7 @@ pub(super) struct CompositeTypeField {
 #[derive(Debug)]
 enum FieldType {
     Model(crate::ModelIdInFile),
+    Union(UnionType),
     Scalar(ScalarFieldType),
     Computed(ComputedType)
 }
@@ -300,6 +307,28 @@ pub(crate) struct ScalarField {
     pub(crate) native_type: Option<(StringId, StringId, Vec<String>, ast::Span)>,
 }
 
+// A Union Type
+// Currently these are always unions of models
+#[derive(Debug)]
+pub(crate) struct UnionType {
+    pub(crate) model_id: crate::ModelIdInFile,
+    pub(crate) field_id: ast::FieldId,
+    //pub(crate) r#type: ScalarFieldType,
+    //pub(crate) is_ignored: bool,
+    //pub(crate) is_updated_at: bool,
+    //pub(crate) default: Option<DefaultAttribute>,
+    /// @map
+    pub(crate) mapped_name: Option<StringId>,
+    /// Native type name and arguments
+    ///
+    /// (attribute scope, native type name, arguments, span)
+    ///
+    /// For example: `@db.Text` would translate to ("db", "Text", &[], <the span>)
+    //pub(crate) native_type: Option<(StringId, StringId, Vec<String>, ast::Span)>,
+    
+    pub(crate) members: Vec<crate::ModelIdInFile>,
+}
+
 // A computed enum type
 #[derive(Debug)]
 pub(crate) struct ComputedEnum {
@@ -368,6 +397,48 @@ impl RelationField {
             relation_attribute: None,
         }
     }
+}
+
+
+#[derive(Debug)]
+pub(crate) struct PolymorphicRelationField {
+    pub(crate) model_id: crate::ModelIdInFile,
+    pub(crate) field_id: ast::FieldId,
+    pub(crate) referenced_models: Vec<crate::ModelIdInFile>,
+    pub(crate) on_delete: Option<(crate::ReferentialAction, ast::Span)>,
+    pub(crate) on_update: Option<(crate::ReferentialAction, ast::Span)>,
+    pub(crate) table_field: Option<ScalarFieldId>,
+    /// The fields _explicitly present_ in the AST.
+    pub(crate) fields: Option<Vec<ScalarFieldId>>,
+    /// The `references` fields _explicitly present_ in the AST.
+    pub(crate) references: Option<Vec<ScalarFieldId>>,
+    /// The name _explicitly present_ in the AST.
+    pub(crate) name: Option<StringId>,
+    pub(crate) is_ignored: bool,
+    /// The foreign key name _explicitly present_ in the AST through the `@map` attribute.
+    pub(crate) mapped_name: Option<StringId>,
+    pub(crate) relation_attribute: Option<ast::AttributeId>,
+}
+
+impl PolymorphicRelationField {
+    
+    fn new(model_id: crate::ModelIdInFile, field_id: ast::FieldId, referenced_models: Vec<crate::ModelIdInFile>) -> Self {
+        PolymorphicRelationField {
+            model_id,
+            field_id,
+            referenced_models,
+            on_delete: None,
+            on_update: None,
+            table_field: None,
+            fields: None,
+            references: None,
+            name: None,
+            is_ignored: false,
+            mapped_name: None,
+            relation_attribute: None,
+        }
+    }
+    
 }
 
 /// Information gathered from validating attributes on a model.
@@ -708,6 +779,10 @@ fn visit_model<'db>(model_id: crate::ModelIdInFile, ast_model: &'db ast::Model, 
                     native_type: None,
                 });
             }
+            Ok(FieldType::Union(u)) => {
+                let rf = PolymorphicRelationField::new(model_id, field_id, u);
+                ctx.types.push_polymorphic_relation_field(rf);
+            },
             Ok(FieldType::Computed(computed_type)) => {
                 // this is a computed type e.g. $tables()
                 ctx.types.push_computed_field(ComputedField {
@@ -791,6 +866,9 @@ fn visit_composite_type<'db>(ct_id: crate::CompositeTypeIdInFile, ct: &'db ast::
                 let referenced_model_name = ctx.asts[referenced_model_id].name();
                 ctx.push_error(DatamodelError::new_composite_type_validation_error(&format!("{referenced_model_name} refers to a model, making this a relation field. Relation fields inside composite types are not supported."), ct.name(), ast_field.field_type.span()))
             }
+            Ok(FieldType::Union()) => {
+                // ??
+            }
             Ok(FieldType::Computed(computed)) => {
                 panic!("composite types are not expected to contain computed types");
             }
@@ -853,10 +931,18 @@ fn field_type<'db>(field: &'db ast::Field, ctx: &mut Context<'db>) -> Result<Fie
                     _ => unreachable!(),
                 }
             },
+            FieldValue::Union(u) => {
+                println!("Found a union type");
+                return Ok(FieldType::Union((UnionType {
+                    model_id,
+                    field_id,
+                    mapped_name,
+                    members
+                })))
+            },
             FieldValue::ComputedType(function) => {
                 // return Ok(FieldType::Scalar(ScalarFieldType::BuiltInScalar(ScalarType::Int)));
 
-                
                 println!("Found a computed type");
                 println!("");
                 let function_name_id = ctx.interner.intern(&function.name);
@@ -872,27 +958,16 @@ fn field_type<'db>(field: &'db ast::Field, ctx: &mut Context<'db>) -> Result<Fie
                         println!("{top_names:?}");
                         println!("");
                         for arg in function.arguments.arguments.as_slice() {
-                            //let x = top
-                            // we need to see if the name exists in the known model names
-                            // otherwise error/diagnostics/panic
-                            //arg.name;
-                            match &arg.name {
-                                Some(ident) => {
-                                    match top_names.iter().find(|name| ***name == ident.name) {
-                                        Some(name) => {
-                                            values.push(ComputedEnumValue((*name).clone()));
-                                        },
-                                        None => {
-                                            ctx.push_error(DatamodelError::new_invalid_model_error(
-                                                ident.name.as_str(),
-                                                function.span,
-                                            ));
-                                            return Err("$tables identifier argument is not a valid model");
-                                        }
-                                    }
-                                }
+                            let ident_name = &arg.value.name;
+                            match top_names.iter().find(|name| **name == ident_name) {
+                                Some(name) => {
+                                    values.push(ComputedEnumValue((*name).clone()));
+                                },
                                 None => {
-                                    return Err("$tables identifier argument has no name");
+                                    ctx.push_error(DatamodelError::new_invalid_model_error(
+                                        &ident_name,
+                                        arg.span,
+                                    ));
                                 }
                             }
                         }
@@ -1678,6 +1753,10 @@ impl ScalarType {
 /// An opaque identifier for a model relation field in a schema.
 #[derive(Copy, Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
 pub struct RelationFieldId(u32);
+
+/// An opaque identifier for a model relation field in a schema.
+#[derive(Copy, Clone, PartialEq, Debug, Hash, Eq, PartialOrd, Ord)]
+pub struct PolymorphicRelationFieldId(u32);
 
 /// An opaque identifier for a model scalar field in a schema.
 #[derive(Copy, Clone, PartialEq, Debug, Eq, Hash)]

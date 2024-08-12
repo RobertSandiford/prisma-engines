@@ -4,11 +4,12 @@ datasource test {
 }
 
 model A {
-    id          Int      @id
+  id        Int      @id
 }
 model B {
-    id          Int      @id
+  id        Int      @id
 }
 model C {
-    foreign     A | B
+  id        Int     @id
+  foreign   A | B
 }

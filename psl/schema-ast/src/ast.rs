@@ -2,9 +2,10 @@ mod argument;
 mod attribute;
 mod comment;
 mod composite_type;
+mod computed_enum;
+mod computed_type_argument;
 mod config;
 mod r#enum;
-mod computed_enum;
 mod expression;
 mod field;
 mod find_at_position;
@@ -16,12 +17,14 @@ mod newline_type;
 mod source_config;
 mod top;
 mod traits;
+mod union;
 
 pub(crate) use self::comment::Comment;
 
 pub use argument::{Argument, ArgumentsList, EmptyArgument};
 pub use attribute::{Attribute, AttributeContainer, AttributeId};
 pub use composite_type::{CompositeType, CompositeTypeId};
+pub use computed_type_argument::{ComputedTypeArgument, ComputedTypeArgumentsList};
 pub use config::ConfigBlockProperty;
 pub use diagnostics::Span;
 pub use expression::Expression;
@@ -37,6 +40,7 @@ pub use r#enum::{Enum, EnumValue, EnumValueId};
 pub use source_config::SourceConfig;
 pub use top::Top;
 pub use traits::{WithAttributes, WithDocumentation, WithIdentifier, WithName, WithSpan};
+pub use union::Union;
 
 /// AST representation of a prisma schema.
 ///

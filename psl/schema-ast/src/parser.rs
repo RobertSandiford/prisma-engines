@@ -3,6 +3,8 @@ mod parse_arguments;
 mod parse_attribute;
 mod parse_comments;
 mod parse_composite_type;
+mod parse_computed_type;
+mod parse_computed_type_arguments;
 mod parse_enum;
 mod parse_expression;
 mod parse_field;
@@ -10,6 +12,7 @@ mod parse_model;
 mod parse_schema;
 mod parse_source_and_generator;
 mod parse_types;
+mod parse_union_type;
 mod parse_view;
 
 pub use parse_schema::parse_schema;
