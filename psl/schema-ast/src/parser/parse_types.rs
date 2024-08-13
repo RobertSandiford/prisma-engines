@@ -17,8 +17,11 @@ pub fn parse_field_type(
     diagnostics: &mut Diagnostics,
     file_id: FileId,
 ) -> Result<(FieldArity, FieldType), DatamodelError> {
+    println!("parse_field_type");
     assert!(pair.as_rule() == Rule::field_type);
     let current = pair.into_inner().next().unwrap();
+    println!("current: {current:?}");
+    println!();
     match current.as_rule() {
         Rule::optional_type => Ok((
             FieldArity::Optional,
@@ -47,7 +50,7 @@ pub fn parse_field_type(
         )),
         Rule::union_type => Ok((
             FieldArity::Required, // is it a list or a union? // what about optional relations?
-            parse_union_type(current.into_inner().next().unwrap(), diagnostics, file_id),
+            parse_union_type(current, diagnostics, file_id),
         )),
         _ => unreachable!("Encountered impossible field during parsing: {:?}", current.tokens()),
     }

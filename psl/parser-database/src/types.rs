@@ -34,6 +34,7 @@ pub(super) struct Types {
     /// This contains only the relation fields actually present in the schema
     /// source text.
     relation_fields: Vec<RelationField>,
+    polymorphic_relation_fields: Vec<PolymorphicRelationField>,
     computed_fields: Vec<ComputedField>,
     pub(super) enum_attributes: HashMap<crate::EnumIdInFile, EnumAttributes>,
     pub(super) model_attributes: HashMap<crate::ModelIdInFile, ModelAttributes>,
@@ -78,6 +79,13 @@ impl Types {
             .map(|(idx, rf)| (RelationFieldId(idx as u32), rf))
     }
 
+    pub(super) fn iter_polymorphic_relation_fields(&self) -> impl Iterator<Item = (PolymorphicRelationFieldId, &PolymorphicRelationField)> {
+        self.polymorphic_relation_fields
+            .iter()
+            .enumerate()
+            .map(|(idx, rf)| (PolymorphicRelationFieldId(idx as u32), rf))
+    }
+
     pub(super) fn range_model_scalar_field_ids(
         &self,
         model_id: crate::ModelIdInFile,
@@ -119,7 +127,7 @@ impl Types {
 
     pub(super) fn push_polymorphic_relation_field(&mut self, polymorphic_relation_field: PolymorphicRelationField) -> PolymorphicRelationFieldId {
         let id = PolymorphicRelationFieldId(self.relation_fields.len() as u32);
-        self.relation_fields.push(polymorphic_relation_field);
+        self.polymorphic_relation_fields.push(polymorphic_relation_field);
         id
     }
 
@@ -311,8 +319,9 @@ pub(crate) struct ScalarField {
 // Currently these are always unions of models
 #[derive(Debug)]
 pub(crate) struct UnionType {
-    pub(crate) model_id: crate::ModelIdInFile,
-    pub(crate) field_id: ast::FieldId,
+    pub(crate) name: String,
+    //pub(crate) model_id: crate::ModelIdInFile,
+    //pub(crate) field_id: ast::FieldId,
     //pub(crate) r#type: ScalarFieldType,
     //pub(crate) is_ignored: bool,
     //pub(crate) is_updated_at: bool,
@@ -780,8 +789,8 @@ fn visit_model<'db>(model_id: crate::ModelIdInFile, ast_model: &'db ast::Model, 
                 });
             }
             Ok(FieldType::Union(u)) => {
-                let rf = PolymorphicRelationField::new(model_id, field_id, u);
-                ctx.types.push_polymorphic_relation_field(rf);
+                let prf = PolymorphicRelationField::new(model_id, field_id, u.members);
+                ctx.types.push_polymorphic_relation_field(prf);
             },
             Ok(FieldType::Computed(computed_type)) => {
                 // this is a computed type e.g. $tables()
@@ -835,10 +844,8 @@ fn visit_model<'db>(model_id: crate::ModelIdInFile, ast_model: &'db ast::Model, 
                                 ));
                             }
                             None => { // this is the section hit for an unrecognized computed type
-                                let mut label: String = String::from("A| ");
-                                label.push_str(supported);
                                 ctx.push_error(DatamodelError::new_type_not_found_error(
-                                    &label,
+                                    &supported,
                                     ast_field.field_type.span(),
                                 ));
                             }
@@ -866,8 +873,12 @@ fn visit_composite_type<'db>(ct_id: crate::CompositeTypeIdInFile, ct: &'db ast::
                 let referenced_model_name = ctx.asts[referenced_model_id].name();
                 ctx.push_error(DatamodelError::new_composite_type_validation_error(&format!("{referenced_model_name} refers to a model, making this a relation field. Relation fields inside composite types are not supported."), ct.name(), ast_field.field_type.span()))
             }
-            Ok(FieldType::Union()) => {
-                // ??
+            Ok(FieldType::Union(u)) => {
+                // for member in u.members {
+                //     let referenced_model_name = ctx.asts[member].name();
+                //     ctx.push_error(DatamodelError::new_composite_type_validation_error(&format!("{referenced_model_name} refers to a model, making this a relation field. Relation fields inside composite types are not supported."), ct.name(), ast_field.field_type.span()))
+                // }
+                ctx.push_error(DatamodelError::new_composite_type_validation_error(&format!("{0} is a union type, these are not supported in composite types", &u.name), ct.name(), ast_field.field_type.span()))
             }
             Ok(FieldType::Computed(computed)) => {
                 panic!("composite types are not expected to contain computed types");
@@ -933,12 +944,50 @@ fn field_type<'db>(field: &'db ast::Field, ctx: &mut Context<'db>) -> Result<Fie
             },
             FieldValue::Union(u) => {
                 println!("Found a union type");
-                return Ok(FieldType::Union((UnionType {
-                    model_id,
-                    field_id,
-                    mapped_name,
+                println!("u: {u:?}");
+                let mut members: Vec<crate::ModelIdInFile> = vec![];
+                for member in &u.members {
+                    let type_name = &member.name;
+                    let supported_string_id = ctx.interner.intern(&type_name);
+
+                    let tops = &ctx.names.tops;
+                    println!("tops: {tops:?}");
+                    match ctx
+                        .names
+                        .tops
+                        .get(&supported_string_id)
+                        .map(|id| (id.0, id.1, &ctx.asts[*id]))
+                    {
+                        Some((file_id, ast::TopId::Model(model_id), ast::Top::Model(_))) => {
+                            //Ok(FieldType::Model((file_id, model_id)))
+                            members.push((file_id, model_id));
+                        },
+                        Some((_, ast::TopId::Enum(_), ast::Top::Enum(_))) => {
+                            // is this the right way to handle the error?
+                            return Err("\"{type_name:?}\": enums are not allowed in unions");
+                        }
+                        Some((_, ast::TopId::CompositeType(_), ast::Top::CompositeType(_))) => {
+                            return Err("\"{type_name:?}\": composite types are not allow in unions");
+                        }
+                        Some((_, _, ast::Top::Generator(_))) | Some((_, _, ast::Top::Source(_))) => unreachable!(),
+                        // Seems that this trigger an error like
+                        // Type "X" is neither a built-in type, nor refers to another model, composite type, or enum.
+                        // Maybe a different error should be created?
+                        None => return Err(&type_name),
+                        _ => unreachable!(),
+                    }
+                };
+                println!("Identifiers found:");
+                println!("{members:?}");
+                println!();
+
+                let unionType = FieldType::Union(UnionType {
+                    name: u.name.clone(),
+                    mapped_name: None,
                     members
-                })))
+                });
+                println!("unionType: {unionType:?}");
+                return Ok(unionType)
             },
             FieldValue::ComputedType(function) => {
                 // return Ok(FieldType::Scalar(ScalarFieldType::BuiltInScalar(ScalarType::Int)));

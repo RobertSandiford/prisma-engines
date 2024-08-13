@@ -1,0 +1,13 @@
+datasource test {
+  provider = "mysql"
+  url = env("TEST_DATABASE_URL")
+}
+
+model A {
+  id        Int      @id
+}
+model B {
+  id            Int     @id
+  foreignId     Int
+  foreign       A       @relation(fields: [foreignId], references: [id])
+}
